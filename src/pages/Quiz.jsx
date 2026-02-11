@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap } from 'lucide-react'
+import { Zap, Shield, Star, Flame, Swords, Crown, Rocket, Target } from 'lucide-react'
 import { generateQuestions } from '@/services/api'
 import PowerLevelGauge from '@/components/PowerLevelGauge'
 
-const TOTAL_QUESTIONS = 12
+const TOTAL_QUESTIONS = 16
 
 export default function Quiz({ onComplete }) {
   const [questions, setQuestions] = useState([])
@@ -12,18 +12,18 @@ export default function Quiz({ onComplete }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [scores, setScores] = useState({ E: 0, N: 0, F: 0, P: 0 })
+  const [videoEnded, setVideoEnded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     generateQuestions()
       .then((data) => {
-        if (!cancelled && data?.questions?.length) setQuestions(data.questions)
+        if (!cancelled && data?.questions?.length) setQuestions(shuffleOptions(data.questions))
         else if (!cancelled) setError('Failed to load questions')
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err.message || 'Network error')
-          setQuestions(getFallbackQuestions())
         }
       })
       .finally(() => {
@@ -34,6 +34,7 @@ export default function Quiz({ onComplete }) {
 
   const handleSelect = (choice) => {
     if (questions.length === 0) return
+    new Audio('/assets/sounds/select.mp3').play().catch(() => {})
     const q = questions[currentIndex]
     const dim = Array.isArray(q.dimension) ? q.dimension : ['E', 'I']
     const value = choice === 0 ? dim[0] : dim[1]
@@ -50,17 +51,43 @@ export default function Quiz({ onComplete }) {
   if (loading) {
     return (
       <motion.div
-        className="h-full flex items-center justify-center bg-black"
+        className="h-full flex items-center justify-center bg-marvel-dark halftone-bg"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <video
-          src="/assets/videos/loading-intro.mp4"
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        />
+        {!videoEnded ? (
+          <video
+            src="/assets/videos/loading-intro.mp4"
+            autoPlay
+            playsInline
+            onEnded={() => setVideoEnded(true)}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative flex items-center justify-center">
+              <motion.div
+                className="w-24 h-24 starburst opacity-80"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+              />
+              <motion.div
+                className="absolute text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <Zap size={36} fill="white" />
+              </motion.div>
+            </div>
+            <motion.p
+              className="text-2xl font-bold text-marvel-gold font-comic comic-title"
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              ASSEMBLING YOUR MISSION...
+            </motion.p>
+          </div>
+        )}
       </motion.div>
     )
   }
@@ -84,14 +111,45 @@ export default function Quiz({ onComplete }) {
 
   const progress = ((currentIndex + 1) / TOTAL_QUESTIONS) * 100
 
+  const floatingIcons = [
+    { Icon: Zap, x: '8%', y: '15%', size: 52, duration: 6, delay: 0, dx: [0, 20, -10, 0] },
+    { Icon: Shield, x: '85%', y: '25%', size: 46, duration: 7, delay: 1, dx: [0, -25, 10, 0] },
+    { Icon: Star, x: '75%', y: '70%', size: 42, duration: 5, delay: 0.5, dx: [0, 15, -20, 0] },
+    { Icon: Flame, x: '12%', y: '75%', size: 48, duration: 8, delay: 2, dx: [0, -15, 25, 0] },
+    { Icon: Swords, x: '90%', y: '55%', size: 44, duration: 6.5, delay: 1.5, dx: [0, 20, -15, 0] },
+    { Icon: Crown, x: '5%', y: '45%', size: 38, duration: 7.5, delay: 0.8, dx: [0, -20, 15, 0] },
+    { Icon: Rocket, x: '30%', y: '70%', size: 44, duration: 7, delay: 0.3, dx: [0, 18, -12, 0] },
+    { Icon: Target, x: '45%', y: '80%', size: 40, duration: 6, delay: 1.8, dx: [0, -18, 15, 0] },
+  ]
+
   return (
     <motion.div
-      className="h-full flex flex-col p-6 font-comic"
+      className="h-full flex flex-col p-6 font-comic relative overflow-hidden halftone-bg"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
+      {/* 레이어 2: 액션 라인 펄스 */}
+      <motion.div
+        className="absolute inset-0 action-lines pointer-events-none"
+        animate={{ scale: [1, 1.8, 1], opacity: [0.15, 0.3, 0.15] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      {/* 레이어 3: 떠다니는 마블 아이콘 */}
+      {floatingIcons.map(({ Icon, x, y, size, duration, delay, dx }, i) => (
+        <motion.div
+          key={i}
+          className="absolute pointer-events-none text-marvel-gold"
+          style={{ left: x, top: y, opacity: 0.3 }}
+          animate={{ y: [0, -45, 0], x: dx, rotate: [0, 25, -25, 0] }}
+          transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <Icon size={size} />
+        </motion.div>
+      ))}
+
       <PowerLevelGauge progress={progress} />
-      <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col justify-start pt-14 max-w-2xl mx-auto w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentIndex}
@@ -104,7 +162,7 @@ export default function Quiz({ onComplete }) {
             <h2 className="text-xl md:text-2xl text-marvel-gold font-bold">
               Question {currentIndex + 1} of {TOTAL_QUESTIONS}
             </h2>
-            <p className="text-lg md:text-xl text-white leading-relaxed">
+            <p className="text-xl md:text-2xl text-white leading-relaxed">
               {current.question}
             </p>
             <div className="space-y-4">
@@ -112,7 +170,7 @@ export default function Quiz({ onComplete }) {
                 <motion.button
                   key={i}
                   onClick={() => handleSelect(i)}
-                  className="w-full text-left px-6 py-4 bg-white/10 hover:bg-marvel-red/80 border-2 border-marvel-gold/50 rounded-xl font-medium transition-colors"
+                  className="w-full text-left px-6 py-4 bg-white/10 hover:bg-marvel-red/80 border-2 border-marvel-gold/50 rounded-xl text-lg font-medium transition-colors"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -140,22 +198,17 @@ function calculateMBTI(scores) {
     .join('')
 }
 
-function getFallbackQuestions() {
-  const dimensions = [
-    ['E', 'I'],
-    ['N', 'S'],
-    ['F', 'T'],
-    ['P', 'J'],
-  ]
-  const fallback = []
-  for (let d = 0; d < 4; d++) {
-    for (let i = 0; i < 3; i++) {
-      fallback.push({
-        question: `Marvel scenario question ${fallback.length + 1} (E/N, N/S, F/T, P/J)?`,
-        options: ['Option A', 'Option B'],
-        dimension: dimensions[d],
-      })
+function shuffleOptions(questions) {
+  return questions.map((q) => {
+    if (Math.random() > 0.5) {
+      return {
+        ...q,
+        options: [q.options[1], q.options[0]],
+        dimension: [q.dimension[1], q.dimension[0]],
+      }
     }
-  }
-  return fallback
+    return q
+  })
 }
+
+

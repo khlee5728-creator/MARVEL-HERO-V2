@@ -18,7 +18,7 @@ export default function HeroGallery({ onBack }) {
           Back
         </button>
         <h1 className="text-3xl md:text-4xl font-bold text-marvel-gold mb-8">
-          Hero Gallery
+          HERO GALLERY
         </h1>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {HEROES.map((hero, i) => (
@@ -44,9 +44,13 @@ export default function HeroGallery({ onBack }) {
               <div className="p-3">
                 <p className="font-bold text-white">{hero.name}</p>
                 <p className="text-sm text-marvel-gold">{hero.mbti}</p>
-                <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                  {hero.traits?.join(', ')}
-                </p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {hero.traits?.map(trait => (
+                    <span key={trait} className="px-2 py-0.5 text-xs text-white bg-cyan-500/80 rounded-full">
+                      {trait}
+                    </span>
+                  ))}
+                </div>
               </div>
             </motion.div>
           ))}

@@ -70,7 +70,7 @@ export default function Result({ mbti, onNewMission, onOpenGallery }) {
                 autoPlay
                 loop
                 playsInline
-                preload="auto"
+                preload="none"
                 className="w-full h-full object-cover"
               />
             ) : (

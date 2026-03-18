@@ -1,44 +1,59 @@
 import sharp from 'sharp';
-import { readdir, stat } from 'fs/promises';
+import { readdir, stat, rename, unlink, copyFile } from 'fs/promises';
 import { join, parse } from 'path';
 
 const INPUT_DIR = './public/assets';
-const QUALITY = 85; // WebP quality (0-100)
-const MAX_WIDTH = 1200; // Maximum width for images
+const QUALITY = 80; // WebP quality (0-100)
+const TARGET_SIZE = 600; // Target size for square images (600x600 for Retina displays)
 
 async function optimizeImage(inputPath, outputPath) {
   try {
-    const info = await sharp(inputPath)
-      .resize(MAX_WIDTH, null, {
-        withoutEnlargement: true,
-        fit: 'inside'
+    const inputStats = await stat(inputPath);
+
+    // Always use a temporary file for Windows compatibility
+    const tempPath = `${outputPath}.tmp`;
+
+    await sharp(inputPath)
+      .resize(TARGET_SIZE, TARGET_SIZE, {
+        fit: 'cover',
+        position: 'center'
       })
       .webp({ quality: QUALITY })
-      .toFile(outputPath);
+      .toFile(tempPath);
 
-    const inputStats = await stat(inputPath);
-    const outputStats = await stat(outputPath);
-    const reduction = ((1 - outputStats.size / inputStats.size) * 100).toFixed(1);
+    const tempStats = await stat(tempPath);
+
+    // Replace original with optimized version using copyFile for Windows compatibility
+    await copyFile(tempPath, outputPath);
+    await unlink(tempPath);
+
+    const reduction = ((1 - tempStats.size / inputStats.size) * 100).toFixed(1);
 
     console.log(`✓ ${parse(inputPath).base}`);
-    console.log(`  ${(inputStats.size / 1024 / 1024).toFixed(2)}MB → ${(outputStats.size / 1024 / 1024).toFixed(2)}MB (${reduction}% reduction)`);
+    console.log(`  ${(inputStats.size / 1024).toFixed(0)}KB → ${(tempStats.size / 1024).toFixed(0)}KB (${reduction}% reduction)`);
 
-    return { inputSize: inputStats.size, outputSize: outputStats.size };
+    return { inputSize: inputStats.size, outputSize: tempStats.size };
   } catch (error) {
     console.error(`✗ Error optimizing ${inputPath}:`, error.message);
+    // Clean up temp file if it exists
+    try {
+      await unlink(`${outputPath}.tmp`);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
     return null;
   }
 }
 
-async function findPngFiles(dir) {
+async function findImageFiles(dir) {
   const files = [];
   const entries = await readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await findPngFiles(fullPath));
-    } else if (entry.name.endsWith('.png')) {
+      files.push(...await findImageFiles(fullPath));
+    } else if (entry.name.endsWith('.png') || entry.name.endsWith('.webp')) {
       files.push(fullPath);
     }
   }
@@ -49,17 +64,17 @@ async function findPngFiles(dir) {
 async function main() {
   console.log('🎨 Starting image optimization...\n');
 
-  const pngFiles = await findPngFiles(INPUT_DIR);
-  console.log(`Found ${pngFiles.length} PNG files\n`);
+  const imageFiles = await findImageFiles(INPUT_DIR);
+  console.log(`Found ${imageFiles.length} image files\n`);
 
   let totalInput = 0;
   let totalOutput = 0;
 
-  for (const pngFile of pngFiles) {
-    const parsed = parse(pngFile);
+  for (const imageFile of imageFiles) {
+    const parsed = parse(imageFile);
     const outputPath = join(parsed.dir, `${parsed.name}.webp`);
 
-    const result = await optimizeImage(pngFile, outputPath);
+    const result = await optimizeImage(imageFile, outputPath);
     if (result) {
       totalInput += result.inputSize;
       totalOutput += result.outputSize;

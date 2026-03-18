@@ -1,34 +1,37 @@
 /**
- * 동적으로 현재 배포 경로를 감지하여 리소스 경로를 생성하는 유틸리티
+ * Vite의 base 설정을 활용하여 리소스 경로를 생성하는 유틸리티
  *
  * 이 유틸리티를 사용하면 한 번 빌드한 파일을 다양한 경로에 배포할 수 있습니다:
  * - 루트 경로: https://example.com/
  * - 서브 경로: https://example.com/apps/marvel/
  * - 깊은 경로: https://example.com/services/games/marvel-hero/
  *
- * 모두 자동으로 올바른 리소스 경로를 생성합니다.
+ * Vite의 import.meta.env.BASE_URL을 사용하여 빌드 시점에 경로가 결정되므로
+ * 런타임 계산보다 안정적이고 SSR/SSG 환경에서도 안전하게 작동합니다.
  */
 
 let cachedBasePath = null
 
 /**
- * 현재 HTML 파일이 위치한 기본 경로를 반환
- * 한 번 계산된 후에는 캐시되어 성능 향상
+ * 현재 애플리케이션의 기본 경로를 반환
+ * Vite의 BASE_URL을 우선 사용하고, 없으면 런타임 계산 (fallback)
  *
- * @returns {string} 기본 경로 (예: '/', '/app/', '/services/marvel/')
+ * @returns {string} 기본 경로 (예: './', '/app/', '/services/marvel/')
  */
 export function getBasePath() {
   if (cachedBasePath !== null) {
     return cachedBasePath
   }
 
-  // 개발 환경에서는 루트 경로 사용
-  if (import.meta.env.DEV) {
-    cachedBasePath = '/'
+  // Vite의 BASE_URL 사용 (빌드 시점에 주입됨)
+  // vite.config.js의 base 설정값이 여기 들어옴
+  if (import.meta.env.BASE_URL) {
+    cachedBasePath = import.meta.env.BASE_URL
     return cachedBasePath
   }
 
-  // 프로덕션 환경에서는 현재 HTML 위치 기준으로 base 경로 계산
+  // Fallback: 런타임에 현재 HTML 위치 기준으로 base 경로 계산
+  // (일반적으로 여기 도달하지 않음)
   const pathname = window.location.pathname
 
   // index.html이 있는 디렉토리까지의 경로 추출

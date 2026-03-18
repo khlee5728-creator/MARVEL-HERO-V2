@@ -36,6 +36,7 @@ export default function HeroGallery({ onBack }) {
                     src={hero.image}
                     alt={hero.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <span className="text-5xl">{hero.emoji}</span>

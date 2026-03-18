@@ -5,7 +5,7 @@ export default function Intro({ onStart }) {
   return (
     <motion.div
       className="h-full flex flex-col items-center justify-end p-6 pb-12 font-comic bg-cover bg-top bg-no-repeat"
-      style={{ backgroundImage: "url('/assets/backgrounds/intro-bg.png')" }}
+      style={{ backgroundImage: "url('/assets/backgrounds/intro-bg.webp')" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}

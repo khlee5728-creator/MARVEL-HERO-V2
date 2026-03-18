@@ -1,9 +1,22 @@
 import { motion } from 'framer-motion'
 import { RotateCcw, LayoutGrid } from 'lucide-react'
 import { getHeroByMbti } from '@/data/heroes'
+import { useEffect } from 'react'
 
 export default function Result({ mbti, onNewMission, onOpenGallery }) {
   const hero = getHeroByMbti(mbti)
+
+  useEffect(() => {
+    // 컨텐츠 마지막 페이지 확인
+    console.error('컨텐츠 마지막 페이지 확인!! ')
+
+    // 컨텐츠의 마지막 페이지에서 실행
+    window.parent.postMessage({
+      op: 'contentFinished',
+      data: {},
+      from: 'child'
+    }, '*')
+  }, [])
 
   return (
     <motion.div
@@ -56,8 +69,8 @@ export default function Result({ mbti, onNewMission, onOpenGallery }) {
                 src={hero.video}
                 autoPlay
                 loop
-                muted
                 playsInline
+                preload="auto"
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -109,7 +122,15 @@ export default function Result({ mbti, onNewMission, onOpenGallery }) {
             transition={{ delay: 0.9 }}
           >
             <button
-              onClick={onNewMission}
+              onClick={() => {
+                // 플랫폼에 Play Again(New Mission) 알림 전송
+                window.parent.postMessage({
+                  op: 'playAgain',
+                  data: {},
+                  from: 'child'
+                }, '*')
+                onNewMission()
+              }}
               className="flex items-center gap-2 px-6 py-3 bg-marvel-red hover:bg-red-600 rounded-lg font-bold transition-colors"
             >
               <RotateCcw size={20} />

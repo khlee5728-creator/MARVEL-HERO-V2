@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, Shield, Star, Flame, Swords, Crown, Rocket, Target } from 'lucide-react'
 import { generateQuestions } from '@/services/api'
 import PowerLevelGauge from '@/components/PowerLevelGauge'
+import { getAssetPath } from '@/utils/assetPath'
 
 const TOTAL_QUESTIONS = 16
 
@@ -34,7 +35,7 @@ export default function Quiz({ onComplete }) {
 
   const handleSelect = (choice) => {
     if (questions.length === 0) return
-    new Audio('/assets/sounds/select.mp3').play().catch(() => {})
+    new Audio(getAssetPath('assets/sounds/select.mp3')).play().catch(() => {})
     const q = questions[currentIndex]
     const dim = Array.isArray(q.dimension) ? q.dimension : ['E', 'I']
     const value = choice === 0 ? dim[0] : dim[1]
@@ -57,7 +58,7 @@ export default function Quiz({ onComplete }) {
       >
         {!videoEnded ? (
           <video
-            src="/assets/videos/loading-intro.mp4"
+            src={getAssetPath('assets/videos/loading-intro.mp4')}
             autoPlay
             playsInline
             onEnded={() => setVideoEnded(true)}

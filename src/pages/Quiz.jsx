@@ -14,24 +14,44 @@ export default function Quiz({ onComplete }) {
   const [error, setError] = useState(null)
   const [scores, setScores] = useState({ E: 0, N: 0, F: 0, P: 0 })
   const [videoEnded, setVideoEnded] = useState(false)
+  const [questionsReady, setQuestionsReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    const startTime = performance.now()
+    console.log('🚀 [Quiz] AI question generation started')
+
     generateQuestions()
       .then((data) => {
-        if (!cancelled && data?.questions?.length) setQuestions(shuffleOptions(data.questions))
-        else if (!cancelled) setError('Failed to load questions')
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2)
+        console.log(`✅ [Quiz] AI questions ready in ${elapsed}s`)
+
+        if (!cancelled && data?.questions?.length) {
+          setQuestions(shuffleOptions(data.questions))
+          setQuestionsReady(true)
+        } else if (!cancelled) {
+          setError('Failed to load questions')
+        }
       })
       .catch((err) => {
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2)
+        console.error(`❌ [Quiz] AI generation failed after ${elapsed}s:`, err.message)
+
         if (!cancelled) {
           setError(err.message || 'Network error')
         }
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
     return () => { cancelled = true }
   }, [])
+
+  // 영상이 끝나고 문제가 준비되면 즉시 시작
+  // 또는 문제가 먼저 준비되고 영상이 끝나면 즉시 시작
+  useEffect(() => {
+    if (questionsReady && videoEnded) {
+      console.log('🎬 [Quiz] Loading complete - starting quiz')
+      setLoading(false)
+    }
+  }, [questionsReady, videoEnded])
 
   const handleSelect = (choice) => {
     if (questions.length === 0) return
@@ -61,7 +81,10 @@ export default function Quiz({ onComplete }) {
             src={getAssetPath('assets/videos/loading-intro.mp4')}
             autoPlay
             playsInline
-            onEnded={() => setVideoEnded(true)}
+            onEnded={() => {
+              console.log('🎥 [Quiz] Loading video ended')
+              setVideoEnded(true)
+            }}
             className="w-full h-full object-cover"
           />
         ) : (

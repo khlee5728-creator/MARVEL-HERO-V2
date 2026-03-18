@@ -71,6 +71,7 @@ export default function Result({ mbti, onNewMission, onOpenGallery }) {
                 loop
                 playsInline
                 preload="none"
+                muted={false}
                 className="w-full h-full object-cover"
               />
             ) : (

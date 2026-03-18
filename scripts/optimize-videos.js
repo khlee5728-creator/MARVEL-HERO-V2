@@ -9,7 +9,8 @@ const INPUT_DIR = './public/assets/characters';
 const OUTPUT_DIR = './public/assets-videos-optimized';
 const TARGET_SIZE = 288; // Match Result page display size (w-72 = 288px)
 const CRF = 30; // Constant Rate Factor (23=high quality, 30=good quality, smaller size)
-const MAX_BITRATE = '250k'; // Maximum bitrate
+const MAX_BITRATE = '250k'; // Maximum video bitrate
+const AUDIO_BITRATE = '64k'; // Audio bitrate (64kbps for good quality, small size)
 const FPS = 24; // Frame rate
 
 async function checkFFmpeg() {
@@ -35,18 +36,19 @@ async function optimizeVideo(inputPath, outputDir) {
 
     console.log(`🎬 Processing: ${fileName}`);
 
-    // FFmpeg command for optimal web video compression
+    // FFmpeg command for optimal web video compression WITH AUDIO
     // -i: input file
     // -vf scale: resize to target size, maintain aspect ratio
     // -c:v libx264: H.264 codec (best compatibility)
     // -crf: quality (lower = better quality, larger file)
     // -preset: encoding speed vs compression (slow = better compression)
-    // -maxrate: maximum bitrate
+    // -maxrate: maximum video bitrate
     // -bufsize: rate control buffer
-    // -movflags +faststart: optimize for web streaming
     // -r: frame rate
-    // -an: remove audio (if any)
-    const command = `ffmpeg -i "${inputPath}" -vf "scale=${TARGET_SIZE}:${TARGET_SIZE}:force_original_aspect_ratio=increase,crop=${TARGET_SIZE}:${TARGET_SIZE}" -c:v libx264 -crf ${CRF} -preset slow -maxrate ${MAX_BITRATE} -bufsize ${parseInt(MAX_BITRATE) * 2}k -r ${FPS} -movflags +faststart -an -y "${outputPath}"`;
+    // -c:a aac: AAC audio codec (best compatibility)
+    // -b:a: audio bitrate
+    // -movflags +faststart: optimize for web streaming
+    const command = `ffmpeg -i "${inputPath}" -vf "scale=${TARGET_SIZE}:${TARGET_SIZE}:force_original_aspect_ratio=increase,crop=${TARGET_SIZE}:${TARGET_SIZE}" -c:v libx264 -crf ${CRF} -preset slow -maxrate ${MAX_BITRATE} -bufsize ${parseInt(MAX_BITRATE) * 2}k -r ${FPS} -c:a aac -b:a ${AUDIO_BITRATE} -movflags +faststart -y "${outputPath}"`;
 
     await execAsync(command);
 
@@ -93,9 +95,11 @@ async function main() {
   console.log(`Settings:
   - Target size: ${TARGET_SIZE}x${TARGET_SIZE}px
   - CRF: ${CRF} (quality)
-  - Max bitrate: ${MAX_BITRATE}
+  - Video bitrate: ${MAX_BITRATE}
+  - Audio bitrate: ${AUDIO_BITRATE}
   - Frame rate: ${FPS}fps
-  - Codec: H.264 (libx264)\n`);
+  - Video codec: H.264 (libx264)
+  - Audio codec: AAC\n`);
 
   const mp4Files = await findMP4Files(INPUT_DIR);
   console.log(`Found ${mp4Files.length} MP4 files\n`);

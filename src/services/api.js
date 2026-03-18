@@ -76,6 +76,7 @@ async function chatCompletions(messages, options = {}) {
 /**
  * MBTI 문항 16개 생성 (E/I, N/S, F/T, P/J 각 4문항)
  * Backend의 /chat/completions를 통해 OpenAI 호출
+ * 병렬 처리: 2번의 API 호출을 동시에 실행하여 속도 향상
  */
 export async function generateQuestions(retries = 1) {
   try {

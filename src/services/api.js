@@ -1,4 +1,98 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://devplayground.polarislabs.ai.kr/api'
+// ─────────────────────────────────────────────
+// JWT 인증 설정 및 헬퍼 함수
+// ─────────────────────────────────────────────
+
+// 백엔드 URL 설정 (window.CONFIG 우선, fallback: 환경변수)
+const backendUrl = (window.CONFIG && window.CONFIG.apiUrl)
+  ? window.CONFIG.apiUrl
+  : (import.meta.env.VITE_BACKEND_URL || 'https://devplayground.polarislabs.ai.kr/api-v1');
+
+// 쿠키 읽기 헬퍼
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return '';
+}
+
+// JWT 토큰 가져오기 (쿠키 Primary, localStorage Backup + 동기화)
+function getJwtToken() {
+  // 1. 쿠키에서 access_token 우선 확인
+  let token = getCookie('access_token');
+
+  // 2. 쿠키에 없으면 localStorage.authToken 확인
+  if (!token) {
+    token = localStorage.getItem('authToken') || '';
+
+    // 3. localStorage에 있었으면 쿠키에 동기화 (15분 만료)
+    if (token) {
+      document.cookie = `access_token=${token}; path=/; max-age=900; SameSite=Lax`;
+    }
+  }
+
+  return token;
+}
+
+// 401 처리: 토큰 만료 시 Poly AI Playground 로그인 페이지로 이동
+function handleUnauthorized() {
+  alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+  window.location.href = 'https://playground.polarislabs.ai.kr/';
+}
+
+// ─────────────────────────────────────────────
+// 공통 OpenAI API 호출 함수 (JWT 인증 포함)
+// ─────────────────────────────────────────────
+
+async function callOpenAIAPI(endpoint, payload) {
+  const jwtToken = getJwtToken();
+  const url = `${backendUrl}${endpoint}`;
+
+  // 최대 3회 재시도
+  for (let i = 0; i < 3; i++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.status === 401) {
+        handleUnauthorized();
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`API 오류: ${response.status} ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        // 백엔드 래핑 형식: { code: "200", data: { ... } }
+        if ((data.code === '200' || data.code === 200) && data.data) {
+          return data.data;
+        }
+        // 직접 형식: { choices: [...] }
+        return data;
+      } else {
+        // 바이너리 응답 (오디오 TTS 등) → Blob 반환
+        return response.blob();
+      }
+    } catch (error) {
+      console.error(`Attempt ${i + 1} failed:`, error);
+      if (i === 2) throw error;
+      await new Promise(res => setTimeout(res, 1000 * Math.pow(2, i)));
+    }
+  }
+  throw new Error('Backend API call failed after multiple retries.');
+}
+
+// ─────────────────────────────────────────────
+// MBTI 문항 생성 관련 설정
+// ─────────────────────────────────────────────
 
 const DIMENSION_INFO = {
   'E/I': { name: 'Extraversion / Introversion', first: 'E', second: 'I' },
@@ -17,7 +111,8 @@ Generate exactly 8 MBTI personality questions set in Marvel scenarios.
 ${dimDesc}
 
 ## Language Requirements
-- English level: CEFR B1 (intermediate). Use common vocabulary and simple grammar structures.
+- English level: CEFR A2-B1 (elementary to intermediate). Target 10-13 year old students learning English as a foreign language.
+- Use common, everyday vocabulary and simple grammar structures.
 - Avoid difficult idioms, phrasal verbs, or advanced vocabulary.
 - Both questions and options must be COMPLETE, NATURAL FULL SENTENCES.
 - Questions should be situational: "Imagine you are..." or "You are a superhero and..." format.
@@ -48,29 +143,31 @@ Example 2:
 - Make sure questions and answers feel natural and conversational.
 - Use fun Marvel characters and scenarios (Avengers missions, saving the city, discovering superpowers, etc.)
 
+## CRITICAL JSON FORMAT RULES
+- You MUST return ONLY valid JSON. No extra text, no markdown code blocks, no explanations.
+- Use double quotes (") for all strings. Never use single quotes (').
+- Ensure every array element has a comma (,) except the last one.
+- Do NOT include trailing commas after the last array element.
+- Escape special characters in strings: use \\" for quotes, \\n for newlines, \\\\ for backslashes.
+- If a question or option contains apostrophes (like "I'm" or "don't"), use them freely - they don't need escaping.
+- Test mentally: {"questions":[...]} must be parseable JSON.
+
 Return ONLY valid JSON (no markdown, no code blocks) in this exact format:
 {"questions":[{"question":"...","options":["...","..."],"dimension":["${dimExample.first}","${dimExample.second}"]},...]}`
 }
 
 /**
- * OpenAI Chat Completions API 호출
+ * OpenAI Chat Completions API 호출 (JWT 인증 적용)
  */
 async function chatCompletions(messages, options = {}) {
-  const res = await fetch(`${BACKEND_URL}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: options.model || 'gpt-4o-mini',
-      messages,
-      temperature: options.temperature ?? 0.8,
-      ...(options.max_tokens && { max_tokens: options.max_tokens }),
-    }),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `API error ${res.status}`)
-  }
-  return res.json()
+  const payload = {
+    model: options.model || 'gpt-4o-mini',
+    messages,
+    temperature: options.temperature ?? 0.8,
+    ...(options.max_tokens && { max_tokens: options.max_tokens }),
+  };
+
+  return callOpenAIAPI('/chat/completions', payload);
 }
 
 /**
@@ -94,13 +191,56 @@ export async function generateQuestions(retries = 1) {
       ], { temperature: 0.9 }),
     ])
 
-    const questionsA = JSON.parse(dataA.choices?.[0]?.message?.content || '').questions
-    const questionsB = JSON.parse(dataB.choices?.[0]?.message?.content || '').questions
+    // 안전한 JSON 파싱 with 상세 에러 로깅
+    let questionsA, questionsB
+
+    try {
+      const contentA = dataA.choices?.[0]?.message?.content || ''
+      if (import.meta.env.DEV) {
+        console.log('[AI-A] Response preview:', contentA.substring(0, 200))
+      }
+      questionsA = JSON.parse(contentA).questions
+      if (import.meta.env.DEV) {
+        console.log(`[AI-A] ✅ Parsed ${questionsA.length} questions`)
+      }
+    } catch (parseError) {
+      console.error('[AI-A] ❌ JSON Parse Error:', parseError.message)
+      console.error('[AI-A] Full response:', dataA.choices?.[0]?.message?.content)
+      throw new Error(`Failed to parse AI response A: ${parseError.message}`)
+    }
+
+    try {
+      const contentB = dataB.choices?.[0]?.message?.content || ''
+      if (import.meta.env.DEV) {
+        console.log('[AI-B] Response preview:', contentB.substring(0, 200))
+      }
+      questionsB = JSON.parse(contentB).questions
+      if (import.meta.env.DEV) {
+        console.log(`[AI-B] ✅ Parsed ${questionsB.length} questions`)
+      }
+    } catch (parseError) {
+      console.error('[AI-B] ❌ JSON Parse Error:', parseError.message)
+      console.error('[AI-B] Full response:', dataB.choices?.[0]?.message?.content)
+      throw new Error(`Failed to parse AI response B: ${parseError.message}`)
+    }
+
     const all = [...questionsA, ...questionsB]
+    if (import.meta.env.DEV) {
+      console.log(`[generateQuestions] Total questions: ${all.length}/16`)
+    }
+
     if (all.length === 16) return { questions: all }
-    throw new Error('Invalid question count')
+    throw new Error(`Invalid question count: got ${all.length}, expected 16`)
   } catch (err) {
-    if (retries > 0) return generateQuestions(retries - 1)
+    console.error(`[generateQuestions] ❌ Attempt failed. Retries left: ${retries}`)
+    console.error(`[generateQuestions] Error:`, err.message)
+    if (retries > 0) {
+      if (import.meta.env.DEV) {
+        console.log('[generateQuestions] 🔄 Retrying question generation...')
+      }
+      return generateQuestions(retries - 1)
+    }
+    console.error('[generateQuestions] ❌ All retries exhausted')
     throw new Error(err.message || 'Failed to generate questions')
   }
 }

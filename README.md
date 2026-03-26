@@ -55,5 +55,17 @@ public/
 
 ## 캐릭터 에셋
 
-`public/assets/characters/`에 Chibi 스타일 코믹북 컨셉 이미지(WebP/PNG)를 넣으면 결과/갤러리에서 사용됩니다.  
+`public/assets/characters/`에 Chibi 스타일 코믹북 컨셉 이미지(WebP/PNG)를 넣으면 결과/갤러리에서 사용됩니다.
 파일명은 `src/data/heroes.js`의 `image` 경로와 맞추면 됩니다.
+
+## 📚 문서
+
+프로젝트 문서는 [`docs/`](./docs/) 폴더에서 확인하실 수 있습니다.
+
+### 주요 문서
+- **[개발 환경 세팅 가이드](./docs/guides/development.md)** - 로컬 개발 환경 구축 방법
+- **[배포 가이드](./docs/guides/deployment.md)** - 빌드 및 배포 방법
+- **[리소스 최적화 가이드](./docs/guides/optimization.md)** - 이미지/비디오 최적화 방법
+- **[PRD (기획안)](./docs/planning/PRD.md)** - 프로젝트 요구사항 정의서
+
+더 많은 문서는 [`docs/README.md`](./docs/README.md)에서 확인하세요.

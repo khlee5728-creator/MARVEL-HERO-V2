@@ -18,5 +18,10 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addVariant }) {
+      // 터치 디바이스에서 hover 효과를 비활성화하기 위한 variant
+      addVariant('hover-supported', '@media (hover: hover) and (pointer: fine)')
+    }
+  ],
 }

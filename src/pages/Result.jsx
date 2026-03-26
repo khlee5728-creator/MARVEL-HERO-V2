@@ -2,15 +2,13 @@ import { motion } from 'framer-motion'
 import { RotateCcw, LayoutGrid } from 'lucide-react'
 import { getHeroByMbti } from '@/data/heroes'
 import { useEffect } from 'react'
+import { HighlightedText } from '@/utils/highlightTraits'
 
 export default function Result({ mbti, onNewMission, onOpenGallery }) {
   const hero = getHeroByMbti(mbti)
 
   useEffect(() => {
-    // 컨텐츠 마지막 페이지 확인
-    console.error('컨텐츠 마지막 페이지 확인!! ')
-
-    // 컨텐츠의 마지막 페이지에서 실행
+    // Notify platform that content has finished
     window.parent.postMessage({
       op: 'contentFinished',
       data: {},
@@ -114,6 +112,21 @@ export default function Result({ mbti, onNewMission, onOpenGallery }) {
               </motion.span>
             ))}
           </div>
+
+          {/* 히어로 설명 */}
+          {hero?.description && (
+            <motion.p
+              className="text-gray-300 text-lg leading-relaxed max-w-md mb-8"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.95 }}
+            >
+              <HighlightedText
+                text={hero.description}
+                highlights={hero.traits}
+              />
+            </motion.p>
+          )}
 
           {/* 버튼 */}
           <motion.div

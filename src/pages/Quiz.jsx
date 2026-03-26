@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, Shield, Star, Flame, Swords, Crown, Rocket, Target } from 'lucide-react'
 import { generateQuestions } from '@/services/api'
@@ -6,6 +6,7 @@ import PowerLevelGauge from '@/components/PowerLevelGauge'
 import { getAssetPath } from '@/utils/assetPath'
 
 const TOTAL_QUESTIONS = 16
+const DEBOUNCE_TIME = 300 // 애니메이션 전환 시간에 맞춰 300ms
 
 export default function Quiz({ onComplete }) {
   const [questions, setQuestions] = useState([])
@@ -15,16 +16,22 @@ export default function Quiz({ onComplete }) {
   const [scores, setScores] = useState({ E: 0, N: 0, F: 0, P: 0 })
   const [videoEnded, setVideoEnded] = useState(false)
   const [questionsReady, setQuestionsReady] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const isCompletedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
     const startTime = performance.now()
-    console.log('🚀 [Quiz] AI question generation started')
+    if (import.meta.env.DEV) {
+      console.log('🚀 [Quiz] AI question generation started')
+    }
 
     generateQuestions()
       .then((data) => {
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2)
-        console.log(`✅ [Quiz] AI questions ready in ${elapsed}s`)
+        if (import.meta.env.DEV) {
+          console.log(`✅ [Quiz] AI questions ready in ${elapsed}s`)
+        }
 
         if (!cancelled && data?.questions?.length) {
           setQuestions(shuffleOptions(data.questions))
@@ -48,24 +55,45 @@ export default function Quiz({ onComplete }) {
   // 또는 문제가 먼저 준비되고 영상이 끝나면 즉시 시작
   useEffect(() => {
     if (questionsReady && videoEnded) {
-      console.log('🎬 [Quiz] Loading complete - starting quiz')
+      if (import.meta.env.DEV) {
+        console.log('🎬 [Quiz] Loading complete - starting quiz')
+      }
       setLoading(false)
     }
   }, [questionsReady, videoEnded])
 
   const handleSelect = (choice) => {
-    if (questions.length === 0) return
+    // 빠른 연속 클릭 방지: 처리 중이거나 이미 완료된 경우 무시
+    if (questions.length === 0 || isProcessing || isCompletedRef.current) return
+
+    setIsProcessing(true)
     new Audio(getAssetPath('assets/sounds/select.mp3')).play().catch(() => {})
+
     const q = questions[currentIndex]
     const dim = Array.isArray(q.dimension) ? q.dimension : ['E', 'I']
     const value = choice === 0 ? dim[0] : dim[1]
     const newScores = { ...scores, [value]: (scores[value] || 0) + 1 }
+
     setScores(newScores)
+
+    // 마지막 문제 체크
     if (currentIndex + 1 >= questions.length) {
-      const mbti = calculateMBTI(newScores)
-      onComplete(mbti, questions)
+      // 중복 완료 호출 방지
+      if (!isCompletedRef.current) {
+        isCompletedRef.current = true
+        const mbti = calculateMBTI(newScores)
+        // 결과 페이지 전환 전 짧은 딜레이로 애니메이션 완료 보장
+        setTimeout(() => {
+          onComplete(mbti, questions)
+        }, 100)
+      }
     } else {
+      // 다음 문제로 이동
       setCurrentIndex((i) => i + 1)
+      // 애니메이션 시간에 맞춰 debounce
+      setTimeout(() => {
+        setIsProcessing(false)
+      }, DEBOUNCE_TIME)
     }
   }
 
@@ -82,7 +110,9 @@ export default function Quiz({ onComplete }) {
             autoPlay
             playsInline
             onEnded={() => {
-              console.log('🎥 [Quiz] Loading video ended')
+              if (import.meta.env.DEV) {
+                console.log('🎥 [Quiz] Loading video ended')
+              }
               setVideoEnded(true)
             }}
             className="w-full h-full object-cover"
@@ -194,9 +224,10 @@ export default function Quiz({ onComplete }) {
                 <motion.button
                   key={i}
                   onClick={() => handleSelect(i)}
-                  className="w-full text-left px-6 py-4 bg-white/10 hover:bg-marvel-red/80 border-2 border-marvel-gold/50 rounded-xl text-lg font-medium transition-colors"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  disabled={isProcessing}
+                  className="w-full text-left px-6 py-4 bg-white/10 hover-supported:hover:bg-marvel-red/80 border-2 border-marvel-gold/50 rounded-xl text-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileHover={isProcessing ? {} : { scale: 1.02 }}
+                  whileTap={isProcessing ? {} : { scale: 0.98 }}
                 >
                   <span className="text-marvel-gold mr-2">{(i + 1)}.</span>
                   {opt}
@@ -234,5 +265,3 @@ function shuffleOptions(questions) {
     return q
   })
 }
-
-

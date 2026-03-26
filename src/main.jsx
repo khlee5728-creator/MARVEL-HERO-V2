@@ -13,5 +13,5 @@ createRoot(document.getElementById('root')).render(
 initScaling({
   designWidth: 1280,
   designHeight: 800,
-  containerId: 'app',
+  containerId: 'root',
 })
